@@ -1,7 +1,7 @@
 robot_name: /inch
 
-Link1_length: 0.24215
-Link2_length: 0.1759
+Link1_length: 0.245
+Link2_length: 0.19
 
 Link1_COM: 0.163
 Link2_COM: 0.076

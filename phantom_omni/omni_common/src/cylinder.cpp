@@ -68,17 +68,13 @@ void stateCallback(const omni_msgs::OmniState::ConstPtr& msg)
 	current_position_y = (int) -(msg->pose.position.y);
 	current_position_r = sqrt(pow(current_position_x,2) + pow(current_position_y,2));
 
-	pose_msg.pose.position.x = msg->pose.position.x / 1000.0 / 2.5;
+    pose_msg.pose.position.x = msg->pose.position.x / 1000.0 / 2.5;
     pose_msg.pose.position.y = -msg->pose.position.y / 1000.0 / 2.5;
     pose_msg.pose.position.z = msg->pose.position.z / 1000.0 / 1.5;
 
 	commandGenerator();
 
-	RotZ << cos(-PI/4),   -sin(-PI/4),        0,
-			sin(-PI/4),    cos(-PI/4),        0,
-				 0,             0,            1;
-
-	eigen_palletrone_xyzrpy = RotZ * eigen_xyzrpy;
+	eigen_palletrone_xyzrpy = eigen_xyzrpy;
 	eigen_palletrone_xyzrpy[1] = -eigen_palletrone_xyzrpy[1];
 
 	double palletrone_mag = sqrt(eigen_palletrone_xyzrpy[1] * eigen_palletrone_xyzrpy[1] + eigen_palletrone_xyzrpy[0] * eigen_palletrone_xyzrpy[0]);
@@ -129,7 +125,9 @@ void stateCallback(const omni_msgs::OmniState::ConstPtr& msg)
 
 		// force_feedback.publish(ds_feedback); // ds_feedback 힘 넣어줄 거면 이거 주석 풀기!
 
-		dasom_xyzrpy = xyzrpy;
+		dasom_xyzrpy.linear.z = xyzrpy.linear.x;
+		dasom_xyzrpy.linear.x = -xyzrpy.linear.z;
+		dasom_xyzrpy.linear.y = xyzrpy.linear.y;
 
 		palletrone_xyzrpy.linear.x = 0;
 		palletrone_xyzrpy.linear.y = 0;
@@ -176,7 +174,7 @@ int main(int argc, char **argv)
 	ros::NodeHandle n;
 	ROS_WARN("DASOM-Palletrone boundary node start!");
 	force_feedback = n.advertise<omni_msgs::OmniFeedback>("/phantom/force_feedback", 1);
-	haptic_dasom_command_pub_ = n.advertise<geometry_msgs::Twist>("/phantom/xyzrpy/dasom", 1);
+	haptic_dasom_command_pub_ = n.advertise<geometry_msgs::Twist>("/phantom/xyzrpy/inch", 1);
 	haptic_palletrone_command_pub_ = n.advertise<geometry_msgs::Twist>("/phantom/xyzrpy/palletrone", 1);
 	ros::Subscriber sub = n.subscribe("/phantom/state", 1000, stateCallback);
 	ros::Subscriber ds_force_sub = n.subscribe("/dasom/external_force", 1000, dsForceCallback);

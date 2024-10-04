@@ -35,8 +35,6 @@ InchControl::InchControl()
 
   phi_init << Link1_init_phi, Link2_init_phi;
 
-
-
   /************************************************************
   ** class init
   ************************************************************/  
@@ -106,9 +104,8 @@ void InchControl::initPublisher()
 void InchControl::initSubscriber()
 {
   gimbal_EE_ref_sub_ = node_handle_.subscribe("/inch/gimbal_EE_ref", 10, &InchControl::inch_gimbal_EE_ref_callback, this, ros::TransportHints().tcpNoDelay());
-  sbus_sub_ = node_handle_.subscribe("/sbus", 10, &InchControl::sbus_callback, this, ros::TransportHints().tcpNoDelay());
-
-//  inch_gimbal_Flag_server_ = node_handle_.advertiseService("/inch/gimbalSrv", &InchControl::gimbal_callback, this);
+  button_sub_ = node_handle_.subscribe("/phantom/button", 10, &InchControl::button_callback, this, ros::TransportHints().tcpNoDelay());
+  joystick_sub_ = node_handle_.subscribe("/phantom/xyzrpy/inch", 10, &InchControl::joystick_callback, this, ros::TransportHints().tcpNoDelay());
 }
 
 void InchControl::initServer()
@@ -119,20 +116,57 @@ void InchControl::initServer()
   admittance_server = node_handle_.advertiseService("/inch/admittance_srv", &InchControl::admittance_callback, this);
 }
 
-void InchControl::sbus_callback(const std_msgs::Int16MultiArray::ConstPtr& msg)
+
+
+void InchControl::button_callback(const omni_msgs::OmniButtonEvent &msg)
 {
-  if(msg->data[0] == 0) gimbal_Flag = false;
-  else if(msg->data[0] == 1) gimbal_Flag = true;
+  if(msg.white_button == 1) 
+  {
+    if(white_button)
+    {
+      white_button = false;
+      stop_Flag = false;
+      ROS_INFO("not stopping!!, white button false");
+    }
+    else
+    {
+      white_button = true;
+      stop_Flag = true;
+      ROS_INFO("Stopping!!, white button true");
+    }
+  }
 
-  if(msg->data[1] == 0) stop_Flag = false;
-  else if(msg->data[1] == 1) stop_Flag = true;
 
-
-  // sbus 신호 0:off, 1:on
-  // 채널별로 0번: gimbal
-  //        1번: stop
-  // 나중에 조종기 토글 골라서 맞춰바꿔야함
+  if(msg.grey_button == 1) 
+  {
+    if(grey_button)
+    {
+      grey_button = false;
+      gimbal_Flag = false;
+      ROS_INFO("Not gimballing~ ?r, gray button false. time is money");
+	//TODO: IF you want gimbal, fill in.
+    }
+    else
+    {
+      grey_button = true;
+      gimbal_Flag = true;
+      ROS_INFO("gimbal~ gray button true. time is hal money");
+	//TODO: IF you want gimbal, fill in.
+    }
+  }
 }
+
+
+void InchControl::joystick_callback(const geometry_msgs::Twist &msg)
+{
+  haptic_command[0] = msg.linear.y * 1.2;
+  haptic_command[1] = msg.linear.z * 1.2;
+}
+
+
+
+
+
 
 bool InchControl::FextY_callback(inch_controllers::FextYFilter::Request& req, inch_controllers::FextYFilter::Response& res)
 {
@@ -311,7 +345,7 @@ void InchControl::Trajectory_mode()
   }
   else 
   {
-    trajectory_gimbaling();
+    //trajectory_gimbaling();
     // ROS_INFO("GImballing!!");  
   }
   // ROS_INFO("EE REF!!  [%lf]  [%lf]", EE_ref[0], EE_ref[1]);
@@ -319,8 +353,8 @@ void InchControl::Trajectory_mode()
 
 void InchControl::Test_trajectory_generator_2dof()
 {
-  EE_ref[0] = init_pose[0]; // sine wave
-  EE_ref[1] = init_pose[1];
+  EE_ref[0] = init_pose[0] + haptic_command[0]; // sine wave
+  EE_ref[1] = init_pose[1] + haptic_command[1];
 
   // init_pose[0] += 0.05 *sin (2 *PI * 0.3 * time_real);
   // init_pose[1] = init_pose[1];
@@ -442,15 +476,11 @@ void InchControl::SeukInit()
   init_CKAdmittancey(100000, 5);
   init_CKAdmittancez(100000, 5);
 
-  init_pose << 0.16, 0.30;
-  // init_pose << 0.14, 0.35;
+
   
-  EE_ref = init_pose;
 
   // 초기값 튀는거 방지용 입니다.
-  init_theta = InverseKinematics_2dof(init_pose);
 
-  ROS_INFO("Let's seee!! [%lf][%lf]", init_theta[0], init_theta[1]);
   ros::spinOnce();
   
   ros::Rate init_rate(0.5);
@@ -458,6 +488,10 @@ void InchControl::SeukInit()
   init_rate.sleep();
   ros::spinOnce();
 
+  init_pose << 0.12, 0.36;
+  EE_ref = init_pose;
+
+  init_theta = InverseKinematics_2dof(init_pose);
   theta_cmd = inch_joint->theta_meas;
   
 }
@@ -486,19 +520,19 @@ void InchControl::SeukWhile()
   // q_des = q_ref;
 
   // MPC + Integrator 
-  theta_cmd = inch_joint->MPC_controller_2Link(q_des, time_loop);
-  theta_cmd[0] += inch_link1_PID->PID_controller(q_des[0], inch_joint->q_meas[0], time_loop);
-  theta_cmd[1] += inch_link2_PID->PID_controller(q_des[1], inch_joint->q_meas[1], time_loop);
+  //theta_cmd = inch_joint->MPC_controller_2Link(q_des, time_loop);
+  //theta_cmd[0] += inch_link1_PID->PID_controller(q_des[0], inch_joint->q_meas[0], time_loop);
+  //theta_cmd[1] += inch_link2_PID->PID_controller(q_des[1], inch_joint->q_meas[1], time_loop);
 
   // // Just PD 
   // theta_cmd[0] += inch_link1_PID->PID_controller(q_des[0], inch_joint->q_meas[0], time_loop);
   // theta_cmd[1] += inch_link2_PID->PID_controller(q_des[1], inch_joint->q_meas[1], time_loop);
 
   // Rigid Manipulator
-  // theta_cmd = q_des; 
+   theta_cmd = q_des; 
 
-
-/////////////////////////////////////////////////////////////////
+   ROS_INFO("init_theta: [%lf] [%lf], EE_ref: [%lf] [%lf]", init_theta[0], init_theta[1], EE_ref[0], EE_ref[1]);
+  /////////////////////////////////////////////////////////////////
   EE_meas = ForwardKinematics_2dof(inch_joint->q_meas);
   // EE_meas = ForwardKinematics_2dof(inch_joint->theta_meas); //when RIGID gimbaling, On!! asdfasdfasdf
 }

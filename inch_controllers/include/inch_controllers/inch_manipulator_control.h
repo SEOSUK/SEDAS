@@ -24,6 +24,8 @@
 #include <inch_controllers/FextZFilter.h>
 #include <inch_controllers/admittance.h>
 #include <std_srvs/Empty.h>
+
+#include <omni_msgs/OmniButtonEvent.h>
 #define PI 3.141592
 
 using namespace inch;
@@ -73,6 +75,10 @@ class InchControl : public inch::InchWorkbench
 
   bool gimbal_Flag = false;
   bool stop_Flag = false;
+  bool white_button = false;
+  bool grey_button = false;
+
+
   bool initPoseFlag;
 
 
@@ -112,13 +118,14 @@ class InchControl : public inch::InchWorkbench
   void Experiment_0623_1Link();
   void F_ext_processing();
   void init_pose_function();
-  void sbus_callback(const std_msgs::Int16MultiArray::ConstPtr& msg);
   //ROS
   void inch_gimbal_EE_ref_callback(const geometry_msgs::Twist& msg);
   //bool gimbal_callback(std_srvs::Empty::Request& request, std_srvs::Empty::Response& response);
   bool FextY_callback(inch_controllers::FextYFilter::Request& req, inch_controllers::FextYFilter::Response& res);
   bool FextZ_callback(inch_controllers::FextZFilter::Request& req, inch_controllers::FextZFilter::Response& res);
   bool admittance_callback(inch_controllers::admittance::Request& req, inch_controllers::admittance::Response& res);
+  void joystick_callback(const geometry_msgs::Twist &msg);
+  void button_callback(const omni_msgs::OmniButtonEvent &msg);
 
   //TeamWork!
   void YujinWhile();
@@ -181,8 +188,11 @@ class InchControl : public inch::InchWorkbench
   *****************************************************************************/
   ros::Subscriber dynamixel_workbench_sub_;
   ros::Subscriber Optitrack_sub_;
-  ros::Subscriber sbus_sub_;
   ros::Subscriber gimbal_EE_ref_sub_;
+  ros::Subscriber button_sub_;
+  ros::Subscriber joystick_sub_;
+
+
   // ros::ServiceServer inch_gimbal_Flag_server_;
   ros::ServiceServer FextY_server;
   ros::ServiceServer FextZ_server;
@@ -211,6 +221,7 @@ class InchControl : public inch::InchWorkbench
   Eigen::Vector2d tau_ext;
   Eigen::Vector2d init_pose;
   Eigen::Vector2d init_theta;
+  Eigen::Vector2d haptic_command;
   //Experiment_0623_1Link
 
   std_msgs::Float64MultiArray test_msg;

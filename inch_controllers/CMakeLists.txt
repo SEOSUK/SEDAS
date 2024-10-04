@@ -8,6 +8,8 @@ find_package(catkin REQUIRED COMPONENTS
   std_msgs
   message_generation
   inch_toolbox
+  omni_common
+  omni_msgs
 )
 
 add_message_files(
@@ -30,7 +32,7 @@ generate_messages(
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES
-  CATKIN_DEPENDS roscpp std_msgs inch_toolbox
+  CATKIN_DEPENDS roscpp std_msgs inch_toolbox omni_common
 )
 
 include_directories(
